@@ -21,6 +21,7 @@ define([
         this._boundingVolume = options.boundingVolume;
         this._orientedBoundingBox = options.orientedBoundingBox;
         this._cull = defaultValue(options.cull, true);
+        this._occlude = defaultValue(options.occlude, true);
         this._modelMatrix = options.modelMatrix;
         this._primitiveType = defaultValue(options.primitiveType, PrimitiveType.TRIANGLES);
         this._vertexArray = options.vertexArray;
@@ -39,6 +40,7 @@ define([
         this._castShadows = defaultValue(options.castShadows, false);
         this._receiveShadows = defaultValue(options.receiveShadows, false);
         this._pickId = options.pickId;
+        this._pickOnly = defaultValue(options.pickOnly, false);
 
         this.dirty = true;
         this.lastDirtyTime = 0;
@@ -114,6 +116,26 @@ define([
             set : function(value) {
                 if (this._cull !== value) {
                     this._cull = value;
+                    this.dirty = true;
+                }
+            }
+        },
+
+        /**
+         * When <code>true</code>, the horizon culls the command based on its {@link DrawCommand#boundingVolume}.
+         * {@link DrawCommand#cull} must also be <code>true</code> in order for the command to be culled.
+         *
+         * @memberof DrawCommand.prototype
+         * @type {Boolean}
+         * @default true
+         */
+        occlude : {
+            get : function() {
+                return this._occlude;
+            },
+            set : function(value) {
+                if (this._occlude !== value) {
+                    this._occlude = value;
                     this.dirty = true;
                 }
             }
@@ -471,6 +493,24 @@ define([
                     this.dirty = true;
                 }
             }
+        },
+        /**
+         * Whether this command should be executed in the pick pass only.
+         *
+         * @memberof DrawCommand.prototype
+         * @type {Boolean}
+         * @default false
+         */
+        pickOnly : {
+            get : function() {
+                return this._pickOnly;
+            },
+            set : function(value) {
+                if (this._pickOnly !== value) {
+                    this._pickOnly = value;
+                    this.dirty = true;
+                }
+            }
         }
     });
 
@@ -488,6 +528,7 @@ define([
         result._boundingVolume = command._boundingVolume;
         result._orientedBoundingBox = command._orientedBoundingBox;
         result._cull = command._cull;
+        result._occlude = command._occlude;
         result._modelMatrix = command._modelMatrix;
         result._primitiveType = command._primitiveType;
         result._vertexArray = command._vertexArray;
@@ -506,6 +547,7 @@ define([
         result._castShadows = command._castShadows;
         result._receiveShadows = command._receiveShadows;
         result._pickId = command._pickId;
+        result._pickOnly = command._pickOnly;
 
         result.dirty = true;
         result.lastDirtyTime = 0;

@@ -36,6 +36,9 @@ define([
         TextureMinificationFilter) {
     'use strict';
 
+    /**
+     * @private
+    */
     function Texture(options) {
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);
 
@@ -265,6 +268,15 @@ define([
     }
 
     /**
+     * This function is identical to using the Texture constructor except that it can be
+     * replaced with a mock/spy in tests.
+     * @private
+     */
+    Texture.create = function(options) {
+        return new Texture(options);
+    };
+
+    /**
      * Creates a texture, and copies a subimage of the framebuffer to it.  When called without arguments,
      * the texture is the same width and height as the framebuffer and contains its contents.
      *
@@ -385,13 +397,16 @@ define([
                     (minificationFilter === TextureMinificationFilter.LINEAR_MIPMAP_NEAREST) ||
                     (minificationFilter === TextureMinificationFilter.LINEAR_MIPMAP_LINEAR);
 
-                // float textures only support nearest filtering, so override the sampler's settings
-                if (this._pixelDatatype === PixelDatatype.FLOAT || this._pixelDatatype === PixelDatatype.HALF_FLOAT) {
+                var context = this._context;
+                var pixelDatatype = this._pixelDatatype;
+
+                // float textures only support nearest filtering unless the linear extensions are supported, so override the sampler's settings
+                if ((pixelDatatype === PixelDatatype.FLOAT && !context.textureFloatLinear) || (pixelDatatype === PixelDatatype.HALF_FLOAT && !context.textureHalfFloatLinear)) {
                     minificationFilter = mipmap ? TextureMinificationFilter.NEAREST_MIPMAP_NEAREST : TextureMinificationFilter.NEAREST;
                     magnificationFilter = TextureMagnificationFilter.NEAREST;
                 }
 
-                var gl = this._context._gl;
+                var gl = context._gl;
                 var target = this._textureTarget;
 
                 gl.activeTexture(gl.TEXTURE0);

@@ -25,12 +25,6 @@ defineSuite([
 
     beforeAll(function() {
         usePointerEvents = FeatureDetection.supportsPointerEvents();
-
-        //See https://github.com/AnalyticalGraphicsInc/cesium/issues/6539
-        if (FeatureDetection.isFirefox()) {
-            usePointerEvents = false;
-            spyOn(FeatureDetection, 'supportsPointerEvents').and.returnValue(false);
-        }
         canvas = createCanvas(1024, 768);
     });
 
@@ -222,10 +216,28 @@ defineSuite([
         expect(handler.anyButtonDown).toEqual(true);
 
         simulateMouseUp(options);
-        expect(handler.anyButtonDown).toEqual(true);
 
         options.button = MouseButtons.LEFT;
         simulateMouseUp(options);
+
+        expect(handler.anyButtonDown).toEqual(false);
+    });
+
+    it('cancels anyButtonDown on any button up', function() {
+        expect(handler.anyButtonDown).toEqual(false);
+
+        var options = {
+            button : MouseButtons.LEFT,
+            clientX : 0,
+            clientY : 0
+        };
+        simulateMouseDown(options);
+
+        options.button = MouseButtons.RIGHT;
+        simulateMouseDown(options);
+
+        simulateMouseUp(options);
+
         expect(handler.anyButtonDown).toEqual(false);
     });
 
