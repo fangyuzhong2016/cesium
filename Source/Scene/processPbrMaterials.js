@@ -1,30 +1,18 @@
-define([
-        './ModelUtility',
-        '../Core/defined',
-        '../Core/defaultValue',
-        '../Core/WebGLConstants',
-        '../Core/webGLConstantToGlslType',
-        '../ThirdParty/GltfPipeline/addToArray',
-        '../ThirdParty/GltfPipeline/ForEach',
-        '../ThirdParty/GltfPipeline/hasExtension',
-        '../ThirdParty/GltfPipeline/numberOfComponentsForType'
-    ], function(
-        ModelUtility,
-        defined,
-        defaultValue,
-        WebGLConstants,
-        webGLConstantToGlslType,
-        addToArray,
-        ForEach,
-        hasExtension,
-        numberOfComponentsForType) {
-    'use strict';
+import defaultValue from '../Core/defaultValue.js';
+import defined from '../Core/defined.js';
+import WebGLConstants from '../Core/WebGLConstants.js';
+import webGLConstantToGlslType from '../Core/webGLConstantToGlslType.js';
+import addToArray from '../ThirdParty/GltfPipeline/addToArray.js';
+import ForEach from '../ThirdParty/GltfPipeline/ForEach.js';
+import hasExtension from '../ThirdParty/GltfPipeline/hasExtension.js';
+import numberOfComponentsForType from '../ThirdParty/GltfPipeline/numberOfComponentsForType.js';
+import ModelUtility from './ModelUtility.js';
 
     /**
      * @private
      */
     function processPbrMaterials(gltf, options) {
-        options = defaultValue(options, {});
+        options = defaultValue(options, defaultValue.EMPTY_OBJECT);
 
         // No need to create new techniques if they already exist,
         // the shader should handle these values
@@ -90,14 +78,8 @@ define([
     function addTextureCoordinates(gltf, textureName, generatedMaterialValues, defaultTexCoord, result) {
         var texCoord;
         if (defined(generatedMaterialValues[textureName + 'Offset'])) {
-            var textureIndex = generatedMaterialValues[textureName].index;
-            var sampler = gltf.samplers[gltf.textures[textureIndex].sampler];
-
-            var repeatS = sampler.wrapS === WebGLConstants.REPEAT ? 'true' : 'false';
-            var repeatT = sampler.wrapT === WebGLConstants.REPEAT ? 'true' : 'false';
-
             texCoord = textureName + 'Coord';
-            result.fragmentShaderMain += '    vec2 ' + texCoord + ' = computeTexCoord(' + defaultTexCoord + ', ' + textureName + 'Offset, ' + textureName + 'Rotation, ' + textureName + 'Scale, ' + repeatS + ', ' + repeatT + ');\n';
+            result.fragmentShaderMain += '    vec2 ' + texCoord + ' = computeTexCoord(' + defaultTexCoord + ', ' + textureName + 'Offset, ' + textureName + 'Rotation, ' + textureName + 'Scale);\n';
         } else {
             texCoord = defaultTexCoord;
         }
@@ -541,6 +523,16 @@ define([
             '}\n\n';
 
         fragmentShader +=
+            'vec3 applyTonemapping(vec3 linearIn) \n' +
+            '{\n' +
+            '#ifndef HDR \n' +
+            '    return czm_acesTonemapping(linearIn);\n' +
+            '#else \n' +
+            '    return linearIn;\n' +
+            '#endif \n' +
+            '}\n\n';
+
+        fragmentShader +=
             'vec3 LINEARtoSRGB(vec3 linearIn) \n' +
             '{\n' +
             '#ifndef HDR \n' +
@@ -551,7 +543,7 @@ define([
             '}\n\n';
 
         fragmentShader +=
-            'vec2 computeTexCoord(vec2 texCoords, vec2 offset, float rotation, vec2 scale, bool repeatS, bool repeatT) \n' +
+            'vec2 computeTexCoord(vec2 texCoords, vec2 offset, float rotation, vec2 scale) \n' +
             '{\n' +
             '    rotation = -rotation; \n' +
             '    mat3 transform = mat3(\n' +
@@ -559,8 +551,6 @@ define([
             '       -sin(rotation) * scale.y, cos(rotation) * scale.y, 0.0, \n' +
             '        offset.x, offset.y, 1.0); \n' +
             '    vec2 transformedTexCoords = (transform * vec3(fract(texCoords), 1.0)).xy; \n' +
-            '    transformedTexCoords.x = repeatS ? fract(transformedTexCoords.x) : clamp(transformedTexCoords.x, 0.0, 1.0); \n' +
-            '    transformedTexCoords.y = repeatT ? fract(transformedTexCoords.y) : clamp(transformedTexCoords.y, 0.0, 1.0); \n' +
             '    return transformedTexCoords; \n' +
             '}\n\n';
 
@@ -790,7 +780,7 @@ define([
             fragmentShader += '    float luminance = gltf_luminanceAtZenith * (numerator / denominator);\n';
             fragmentShader += '#endif \n';
 
-            fragmentShader += '    vec2 brdfLut = texture2D(czm_brdfLut, vec2(NdotV, 1.0 - roughness)).rg;\n';
+            fragmentShader += '    vec2 brdfLut = texture2D(czm_brdfLut, vec2(NdotV, roughness)).rg;\n';
             fragmentShader += '    vec3 IBLColor = (diffuseIrradiance * diffuseColor * gltf_iblFactor.x) + (specularIrradiance * SRGBtoLINEAR3(specularColor * brdfLut.x + brdfLut.y) * gltf_iblFactor.y);\n';
 
             fragmentShader += '#ifdef USE_SUN_LUMINANCE \n';
@@ -853,8 +843,12 @@ define([
             }
         }
 
-        // Final color
+        if (!isUnlit) {
+            fragmentShader += '    color = applyTonemapping(color);\n';
+        }
+
         fragmentShader += '    color = LINEARtoSRGB(color);\n';
+
         if (defined(alphaMode)) {
             if (alphaMode === 'MASK') {
                 fragmentShader += '    if (baseColorWithAlpha.a < u_alphaCutoff) {\n';
@@ -869,6 +863,7 @@ define([
         } else {
             fragmentShader += '    gl_FragColor = vec4(color, 1.0);\n';
         }
+
         fragmentShader += '}\n';
 
         // Add shaders
@@ -936,6 +931,4 @@ define([
                 return WebGLConstants.FLOAT;
         }
     }
-
-    return processPbrMaterials;
-});
+export default processPbrMaterials;
